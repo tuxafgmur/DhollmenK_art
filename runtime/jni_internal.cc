@@ -476,9 +476,8 @@ class SharedLibrary {
       MutexLock mu(self, jni_on_load_lock_);
 
       if (jni_on_load_thread_id_ == self->GetThinLockId()) {
-        // Check this so we don't end up waiting for ourselves.  We need to return "true" so the
-        // caller can continue.
-        LOG(INFO) << *self << " recursive attempt to load library " << "\"" << path_ << "\"";
+        // Check this so we don't end up waiting for ourselves.
+	// We need to return "true" so the caller can continue.
         okay = true;
       } else {
         while (jni_on_load_result_ == kPending) {

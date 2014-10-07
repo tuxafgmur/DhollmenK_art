@@ -66,15 +66,9 @@ bool ElfFile::Setup(File* file, bool writable, bool program_header_only) {
   int64_t file_length = file_->GetLength();
   if (file_length < 0) {
     errno = -file_length;
-    PLOG(WARNING) << "Failed to get length of file: " << file_->GetPath() << " fd=" << file_->Fd();
     return false;
   }
   if (file_length < sizeof(llvm::ELF::Elf32_Ehdr)) {
-    if (writable) {
-      LOG(WARNING) << "File size of " << file_length
-                   << " bytes not large enough to contain ELF header of "
-                   << sizeof(llvm::ELF::Elf32_Ehdr) << " bytes: " << file_->GetPath();
-    }
     return false;
   }
 
@@ -87,19 +81,14 @@ bool ElfFile::Setup(File* file, bool writable, bool program_header_only) {
     // then remap to cover program header
     size_t program_header_size = header_->e_phoff + (header_->e_phentsize * header_->e_phnum);
     if (file_length < program_header_size) {
-      LOG(WARNING) << "File size of " << file_length
-                   << " bytes not large enough to contain ELF program header of "
-                   << program_header_size << " bytes: " << file_->GetPath();
       return false;
     }
     if (!SetMap(MemMap::MapFile(program_header_size, prot, flags, file_->Fd(), 0))) {
-      LOG(WARNING) << "Failed to map ELF program headers: " << file_->GetPath();
       return false;
     }
   } else {
     // otherwise map entire file
     if (!SetMap(MemMap::MapFile(file_->GetLength(), prot, flags, file_->Fd(), 0))) {
-      LOG(WARNING) << "Failed to map ELF file: " << file_->GetPath();
       return false;
     }
   }
@@ -114,7 +103,6 @@ bool ElfFile::Setup(File* file, bool writable, bool program_header_only) {
     // Find .dynamic section info from program header
     dynamic_program_header_ = FindProgamHeaderByType(llvm::ELF::PT_DYNAMIC);
     if (dynamic_program_header_ == NULL) {
-      LOG(WARNING) << "Failed to find PT_DYNAMIC program header in ELF file: " << file_->GetPath();
       return false;
     }
 
@@ -145,10 +133,6 @@ bool ElfFile::Setup(File* file, bool writable, bool program_header_only) {
         }
         case llvm::ELF::SHT_DYNAMIC: {
           if (reinterpret_cast<byte*>(dynamic_section_start_) != section_addr) {
-            LOG(WARNING) << "Failed to find matching SHT_DYNAMIC for PT_DYNAMIC in "
-                         << file_->GetPath() << ": " << std::hex
-                         << reinterpret_cast<void*>(dynamic_section_start_)
-                         << " != " << reinterpret_cast<void*>(section_addr);
             return false;
           }
           break;
@@ -183,12 +167,6 @@ bool ElfFile::SetMap(MemMap* map) {
       || (llvm::ELF::ElfMagic[1] != header_->e_ident[llvm::ELF::EI_MAG1])
       || (llvm::ELF::ElfMagic[2] != header_->e_ident[llvm::ELF::EI_MAG2])
       || (llvm::ELF::ElfMagic[3] != header_->e_ident[llvm::ELF::EI_MAG3])) {
-    LOG(WARNING) << "Failed to find ELF magic in " << file_->GetPath()
-                 << ": " << std::hex
-                 << static_cast<uint8_t>(header_->e_ident[llvm::ELF::EI_MAG0])
-                 << static_cast<uint8_t>(header_->e_ident[llvm::ELF::EI_MAG1])
-                 << static_cast<uint8_t>(header_->e_ident[llvm::ELF::EI_MAG2])
-                 << static_cast<uint8_t>(header_->e_ident[llvm::ELF::EI_MAG3]);
     return false;
   }
 
@@ -657,10 +635,6 @@ bool ElfFile::Load(bool executable) {
       flags |= MAP_PRIVATE;
     }
     if (file_length < (program_header.p_offset + program_header.p_memsz)) {
-      LOG(WARNING) << "File size of " << file_length
-                   << " bytes not large enough to contain ELF segment " << i
-                   << " of " << (program_header.p_offset + program_header.p_memsz)
-                   << " bytes: " << file_->GetPath();
       return false;
     }
     UniquePtr<MemMap> segment(MemMap::MapFileAtAddress(p_vaddr,

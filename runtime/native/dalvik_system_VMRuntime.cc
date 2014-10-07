@@ -165,30 +165,11 @@ static void VMRuntime_registerNativeFree(JNIEnv* env, jobject, jint bytes) {
 }
 
 static void VMRuntime_trimHeap(JNIEnv*, jobject) {
-  uint64_t start_ns = NanoTime();
 
-  // Trim the managed heap.
-  gc::Heap* heap = Runtime::Current()->GetHeap();
-  gc::space::DlMallocSpace* alloc_space = heap->GetAllocSpace();
-  size_t alloc_space_size = alloc_space->Size();
-  float managed_utilization =
-      static_cast<float>(alloc_space->GetBytesAllocated()) / alloc_space_size;
-  size_t managed_reclaimed = heap->Trim();
-
-  uint64_t gc_heap_end_ns = NanoTime();
-
-  // Trim the native heap.
   dlmalloc_trim(0);
   size_t native_reclaimed = 0;
   dlmalloc_inspect_all(DlmallocMadviseCallback, &native_reclaimed);
 
-  uint64_t end_ns = NanoTime();
-
-  LOG(INFO) << "Heap trim of managed (duration=" << PrettyDuration(gc_heap_end_ns - start_ns)
-      << ", advised=" << PrettySize(managed_reclaimed) << ") and native (duration="
-      << PrettyDuration(end_ns - gc_heap_end_ns) << ", advised=" << PrettySize(native_reclaimed)
-      << ") heaps. Managed heap utilization of " << static_cast<int>(100 * managed_utilization)
-      << "%.";
 }
 
 static void VMRuntime_concurrentGC(JNIEnv* env, jobject) {

@@ -370,17 +370,6 @@ Runtime::ParsedOptions* Runtime::ParsedOptions::Create(const Options& options, b
   parsed->num_dex_methods_threshold_ = Runtime::kDefaultNumDexMethodsThreshold;
 
   parsed->sea_ir_mode_ = false;
-//  gLogVerbosity.class_linker = true;  // TODO: don't check this in!
-//  gLogVerbosity.compiler = true;  // TODO: don't check this in!
-//  gLogVerbosity.verifier = true;  // TODO: don't check this in!
-//  gLogVerbosity.heap = true;  // TODO: don't check this in!
-//  gLogVerbosity.gc = true;  // TODO: don't check this in!
-//  gLogVerbosity.jdwp = true;  // TODO: don't check this in!
-//  gLogVerbosity.jni = true;  // TODO: don't check this in!
-//  gLogVerbosity.monitor = true;  // TODO: don't check this in!
-//  gLogVerbosity.startup = true;  // TODO: don't check this in!
-//  gLogVerbosity.third_party_jni = true;  // TODO: don't check this in!
-//  gLogVerbosity.threads = true;  // TODO: don't check this in!
 
   parsed->method_trace_ = false;
   parsed->method_trace_file_ = "/data/method-trace-file.bin";
@@ -1118,9 +1107,6 @@ void Runtime::BlockSignals() {
 bool Runtime::AttachCurrentThread(const char* thread_name, bool as_daemon, jobject thread_group,
                                   bool create_peer) {
   bool success = Thread::Attach(thread_name, as_daemon, thread_group, create_peer) != NULL;
-  if (thread_name == NULL) {
-    LOG(WARNING) << *Thread::Current() << " attached without supplying a name";
-  }
   return success;
 }
 

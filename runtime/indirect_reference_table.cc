@@ -142,10 +142,6 @@ IndirectRef IndirectReferenceTable::Add(uint32_t cookie, const mirror::Object* o
     table_[topIndex++] = obj;
     segment_state_.parts.topIndex = topIndex;
   }
-  if (false) {
-    LOG(INFO) << "+++ added at " << ExtractIndex(result) << " top=" << segment_state_.parts.topIndex
-              << " holes=" << segment_state_.parts.numHoles;
-  }
 
   DCHECK(result != NULL);
   return result;
@@ -230,28 +226,22 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
   JavaVMExt* vm = Runtime::Current()->GetJavaVM();
   if (GetIndirectRefKind(iref) == kSirtOrInvalid &&
       Thread::Current()->SirtContains(reinterpret_cast<jobject>(iref))) {
-    LOG(WARNING) << "Attempt to remove local SIRT entry from IRT, ignoring";
     return true;
   }
   if (GetIndirectRefKind(iref) == kSirtOrInvalid && vm->work_around_app_jni_bugs) {
     mirror::Object* direct_pointer = reinterpret_cast<mirror::Object*>(iref);
     idx = Find(direct_pointer, bottomIndex, topIndex, table_);
     if (idx == -1) {
-      LOG(WARNING) << "Trying to work around app JNI bugs, but didn't find " << iref << " in table!";
       return false;
     }
   }
 
   if (idx < bottomIndex) {
     // Wrong segment.
-    LOG(WARNING) << "Attempt to remove index outside index area (" << idx
-                 << " vs " << bottomIndex << "-" << topIndex << ")";
     return false;
   }
   if (idx >= topIndex) {
     // Bad --- stale reference?
-    LOG(WARNING) << "Attempt to remove invalid index " << idx
-                 << " (bottom=" << bottomIndex << " top=" << topIndex << ")";
     return false;
   }
 
@@ -266,15 +256,8 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
     int numHoles = segment_state_.parts.numHoles - prevState.parts.numHoles;
     if (numHoles != 0) {
       while (--topIndex > bottomIndex && numHoles != 0) {
-        if (false) {
-          LOG(INFO) << "+++ checking for hole at " << topIndex-1
-                    << " (cookie=" << cookie << ") val=" << table_[topIndex - 1];
-        }
         if (table_[topIndex-1] != NULL) {
           break;
-        }
-        if (false) {
-          LOG(INFO) << "+++ ate hole at " << (topIndex - 1);
         }
         numHoles--;
       }
@@ -282,16 +265,12 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
       segment_state_.parts.topIndex = topIndex;
     } else {
       segment_state_.parts.topIndex = topIndex-1;
-      if (false) {
-        LOG(INFO) << "+++ ate last entry " << topIndex - 1;
-      }
     }
   } else {
     // Not the top-most entry.  This creates a hole.  We NULL out the
     // entry to prevent somebody from deleting it twice and screwing up
     // the hole count.
     if (table_[idx] == NULL) {
-      LOG(INFO) << "--- WEIRD: removing null entry " << idx;
       return false;
     }
     if (!vm->work_around_app_jni_bugs && !CheckEntry("remove", iref, idx)) {
@@ -300,9 +279,6 @@ bool IndirectReferenceTable::Remove(uint32_t cookie, IndirectRef iref) {
 
     table_[idx] = NULL;
     segment_state_.parts.numHoles++;
-    if (false) {
-      LOG(INFO) << "+++ left hole at " << idx << ", holes=" << segment_state_.parts.numHoles;
-    }
   }
 
   return true;

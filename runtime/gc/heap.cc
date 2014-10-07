@@ -137,9 +137,6 @@ Heap::Heap(size_t initial_size, size_t growth_limit, size_t min_free, size_t max
       total_allocation_time_(0),
       verify_object_mode_(kHeapVerificationNotPermitted),
       running_on_valgrind_(RUNNING_ON_VALGRIND) {
-  if (VLOG_IS_ON(heap) || VLOG_IS_ON(startup)) {
-    LOG(INFO) << "Heap() entering";
-  }
 
   live_bitmap_.reset(new accounting::HeapBitmap(this));
   mark_bitmap_.reset(new accounting::HeapBitmap(this));
@@ -238,9 +235,6 @@ Heap::Heap(size_t initial_size, size_t growth_limit, size_t min_free, size_t max
   }
 
   CHECK_NE(max_allowed_footprint_, 0U);
-  if (VLOG_IS_ON(heap) || VLOG_IS_ON(startup)) {
-    LOG(INFO) << "Heap() exiting";
-  }
 }
 
 void Heap::CreateThreadPool() {
@@ -266,7 +260,6 @@ static bool ReadStaticInt(JNIEnvExt* env, jclass clz, const char* name, int* out
 }
 
 void Heap::ListenForProcessStateChange() {
-  VLOG(heap) << "Heap notified of process state change";
 
   Thread* self = Thread::Current();
   JNIEnvExt* env = self->GetJniEnv();
@@ -298,7 +291,6 @@ void Heap::ListenForProcessStateChange() {
     jobject obj = env->CallStaticObjectMethod(activity_thread_class_, current_activity_method);
     if (obj == NULL) {
       env->ExceptionClear();
-      LOG(WARNING) << "Could not get current activity";
       return;
     }
     activity_thread_ = env->NewGlobalRef(obj);
@@ -308,7 +300,6 @@ void Heap::ListenForProcessStateChange() {
     // Just attempt to do this the first time.
     jclass clz = env->FindClass("android/app/ActivityManager");
     if (clz == NULL) {
-      LOG(WARNING) << "Activity manager class is null";
       return;
     }
     ScopedLocalRef<jclass> activity_manager(env, clz);
@@ -320,8 +311,6 @@ void Heap::ListenForProcessStateChange() {
       int process_state = 0;
       if (ReadStaticInt(env, activity_manager.get(), care_about_pauses[i], &process_state)) {
         process_state_cares_about_pause_time_.insert(process_state);
-        VLOG(heap) << "Adding process state " << process_state
-                   << " to set of states which care about pause time";
       }
     }
   }
@@ -367,8 +356,6 @@ void Heap::ListenForProcessStateChange() {
     care_about_pause_times_ = process_state_cares_about_pause_time_.find(process_state) !=
         process_state_cares_about_pause_time_.end();
 
-    VLOG(heap) << "New process state " << process_state
-               << " care about pauses " << care_about_pause_times_;
   }
 }
 
@@ -479,7 +466,6 @@ void Heap::DumpGcPerformanceInfo(std::ostream& os) {
 
 Heap::~Heap() {
   if (kDumpGcPerformanceOnShutdown) {
-    DumpGcPerformanceInfo(LOG(INFO));
   }
 
   STLDeleteElements(&mark_sweep_collectors_);
@@ -488,7 +474,6 @@ Heap::~Heap() {
   allocation_stack_->Reset();
   live_stack_->Reset();
 
-  VLOG(heap) << "~Heap()";
   // We can't take the heap lock here because there might be a daemon thread suspended with the
   // heap lock held. We know though that no non-daemon threads are executing, and we know that
   // all daemon threads are suspended, and we also know that the threads list have been deleted, so
@@ -713,16 +698,6 @@ void Heap::VerifyObjectImpl(const mirror::Object* obj) {
 }
 
 void Heap::DumpSpaces() {
-  for (const auto& space : continuous_spaces_) {
-    accounting::SpaceBitmap* live_bitmap = space->GetLiveBitmap();
-    accounting::SpaceBitmap* mark_bitmap = space->GetMarkBitmap();
-    LOG(INFO) << space << " " << *space << "\n"
-              << live_bitmap << " " << *live_bitmap << "\n"
-              << mark_bitmap << " " << *mark_bitmap;
-  }
-  for (const auto& space : discontinuous_spaces_) {
-    LOG(INFO) << space << " " << *space << "\n";
-  }
 }
 
 void Heap::VerifyObjectBody(const mirror::Object* obj) {
@@ -924,10 +899,6 @@ mirror::Object* Heap::AllocateInternalWithGc(Thread* self, space::AllocSpace* sp
   // Most allocations should have succeeded by now, so the heap is really full, really fragmented,
   // or the requested size is really big. Do another GC, collecting SoftReferences this time. The
   // VM spec requires that all SoftReferences have been collected and cleared before throwing OOME.
-
-  // OLD-TODO: wait for the finalizers from the previous GC to finish
-  VLOG(gc) << "Forcing collection of SoftReferences for " << PrettySize(alloc_size)
-           << " allocation";
 
   // We don't need a WaitForConcurrentGcToComplete here either.
   CollectGarbageInternal(collector::kGcTypeFull, kGcCauseForAlloc, true);
@@ -1138,8 +1109,6 @@ void Heap::PreZygoteFork() {
     return;
   }
 
-  VLOG(heap) << "Starting PreZygoteFork with alloc space size " << PrettySize(alloc_space_->Size());
-
   {
     // Flush the alloc stack.
     WriterMutexLock mu(self, *Locks::heap_bitmap_lock_);
@@ -1228,13 +1197,9 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
   uint64_t gc_start_time_ns = NanoTime();
   uint64_t gc_start_size = GetBytesAllocated();
   // Approximate allocation rate in bytes / second.
-  if (UNLIKELY(gc_start_time_ns == last_gc_time_ns_)) {
-    LOG(WARNING) << "Timers are broken (gc_start_time == last_gc_time_).";
-  }
   uint64_t ms_delta = NsToMs(gc_start_time_ns - last_gc_time_ns_);
   if (ms_delta != 0) {
     allocation_rate_ = ((gc_start_size - last_gc_size_) * 1000) / ms_delta;
-    VLOG(heap) << "Allocation rate: " << PrettySize(allocation_rate_) << "/s";
   }
 
   if (gc_type == collector::kGcTypeSticky &&
@@ -1246,8 +1211,6 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
   DCHECK_NE(gc_type, collector::kGcTypeNone);
   DCHECK_LE(gc_cause, kGcCauseExplicit);
 
-  ATRACE_BEGIN(gc_cause_and_type_strings[gc_cause][gc_type]);
-
   collector::MarkSweep* collector = NULL;
   for (const auto& cur_collector : mark_sweep_collectors_) {
     if (cur_collector->IsConcurrent() == concurrent_gc_ && cur_collector->GetGcType() == gc_type) {
@@ -1255,9 +1218,6 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
       break;
     }
   }
-  CHECK(collector != NULL)
-      << "Could not find garbage collector with concurrent=" << concurrent_gc_
-      << " and type=" << gc_type;
 
   collector->clear_soft_references_ = clear_soft_references;
   collector->Run();
@@ -1275,27 +1235,6 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
       }
     }
 
-    if (was_slow) {
-        const size_t percent_free = GetPercentFree();
-        const size_t current_heap_size = GetBytesAllocated();
-        const size_t total_memory = GetTotalMemory();
-        std::ostringstream pause_string;
-        for (size_t i = 0; i < pauses.size(); ++i) {
-            pause_string << PrettyDuration((pauses[i] / 1000) * 1000)
-                         << ((i != pauses.size() - 1) ? ", " : "");
-        }
-        LOG(INFO) << gc_cause << " " << collector->GetName()
-                  << " GC freed "  <<  collector->GetFreedObjects() << "("
-                  << PrettySize(collector->GetFreedBytes()) << ") AllocSpace objects, "
-                  << collector->GetFreedLargeObjects() << "("
-                  << PrettySize(collector->GetFreedLargeObjectBytes()) << ") LOS objects, "
-                  << percent_free << "% free, " << PrettySize(current_heap_size) << "/"
-                  << PrettySize(total_memory) << ", " << "paused " << pause_string.str()
-                  << " total " << PrettyDuration((duration / 1000) * 1000);
-        if (VLOG_IS_ON(heap)) {
-            LOG(INFO) << Dumpable<base::TimingLogger>(collector->GetTimings());
-        }
-    }
   }
 
   {
@@ -1305,8 +1244,6 @@ collector::GcType Heap::CollectGarbageInternal(collector::GcType gc_type, GcCaus
       // Wake anyone who may have been waiting for the GC to complete.
       gc_complete_cond_->Broadcast(self);
   }
-
-  ATRACE_END();
 
   // Inform DDMS that a GC completed.
   Dbg::GcDidFinish();
@@ -1727,7 +1664,6 @@ void Heap::PostGcVerification(collector::GarbageCollector* gc) {
 collector::GcType Heap::WaitForConcurrentGcToComplete(Thread* self) {
   collector::GcType last_gc_type = collector::kGcTypeNone;
   if (concurrent_gc_) {
-    ATRACE_BEGIN("GC: Wait For Concurrent");
     bool do_wait;
     uint64_t wait_start = NanoTime();
     {
@@ -1748,11 +1684,7 @@ collector::GcType Heap::WaitForConcurrentGcToComplete(Thread* self) {
         wait_time = NanoTime() - wait_start;
         total_wait_time_ += wait_time;
       }
-      if (wait_time > long_pause_log_threshold_) {
-        LOG(INFO) << "WaitForConcurrentGcToComplete blocked for " << PrettyDuration(wait_time);
-      }
     }
-    ATRACE_END();
   }
   return last_gc_type;
 }
@@ -1760,7 +1692,6 @@ collector::GcType Heap::WaitForConcurrentGcToComplete(Thread* self) {
 void Heap::DumpForSigQuit(std::ostream& os) {
   os << "Heap: " << GetPercentFree() << "% free, " << PrettySize(GetBytesAllocated()) << "/"
      << PrettySize(GetTotalMemory()) << "; " << GetObjectsAllocated() << " objects\n";
-  DumpGcPerformanceInfo(os);
 }
 
 size_t Heap::GetPercentFree() {
@@ -1769,8 +1700,6 @@ size_t Heap::GetPercentFree() {
 
 void Heap::SetIdealFootprint(size_t max_allowed_footprint) {
   if (max_allowed_footprint > GetMaxMemory()) {
-    VLOG(gc) << "Clamp target GC heap from " << PrettySize(max_allowed_footprint) << " to "
-             << PrettySize(GetMaxMemory());
     max_allowed_footprint = GetMaxMemory();
   }
   max_allowed_footprint_ = max_allowed_footprint;

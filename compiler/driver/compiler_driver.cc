@@ -2345,8 +2345,8 @@ void CompilerDriver::CompileMethod(const DexFile::CodeItem* code_item, uint32_t 
   const uint64_t kWarnMilliSeconds = 100;
 #endif
   if (duration_ns > MsToNs(kWarnMilliSeconds)) {
-    LOG(WARNING) << "Compilation of " << PrettyMethod(method_idx, dex_file)
-                 << " took " << PrettyDuration(duration_ns);
+    //LOG(WARNING) << "Compilation of " << PrettyMethod(method_idx, dex_file)
+    //             << " took " << PrettyDuration(duration_ns);
   }
 
   Thread* self = Thread::Current();

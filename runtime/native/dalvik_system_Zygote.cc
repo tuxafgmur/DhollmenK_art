@@ -425,7 +425,6 @@ static void DetachDescriptors(JNIEnv* env, jintArray fdsToClose) {
       PLOG(FATAL) << "Failed to open /dev/null";
       continue;
     }
-    PLOG(VERBOSE) << "Switching descriptor " << ar[i] << " to /dev/null";
     if (dup2(devnull, ar[i]) < 0) {
       PLOG(FATAL) << "Failed dup2() on descriptor " << ar[i];
     }

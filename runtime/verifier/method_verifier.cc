@@ -258,11 +258,6 @@ MethodVerifier::FailureKind MethodVerifier::VerifyMethod(uint32_t method_idx,
     }
     result = kHardFailure;
   }
-  uint64_t duration_ns = NanoTime() - start_ns;
-  if (duration_ns > MsToNs(100)) {
-    LOG(WARNING) << "Verification of " << PrettyMethod(method_idx, *dex_file)
-                 << " took " << PrettyDuration(duration_ns);
-  }
   return result;
 }
 
@@ -1003,8 +998,6 @@ bool MethodVerifier::VerifyCodeFlow() {
   uint32_t insns_size = code_item_->insns_size_in_code_units_;
 
   if (registers_size * insns_size > 4*1024*1024) {
-    LOG(WARNING) << "warning: method is huge (regs=" << registers_size
-                 << " insns_size=" << insns_size << ")";
   }
   /* Create and initialize table holding register status */
   reg_table_.Init(kTrackCompilerInterestPoints,

@@ -259,8 +259,10 @@ static jboolean DexFile_isDexOptNeeded(JNIEnv* env, jclass, jstring javaFilename
   std::string cache_location(GetDalvikCacheFilenameOrDie(filename.c_str()));
   oat_file.reset(OatFile::Open(cache_location, filename.c_str(), NULL, false));
   if (oat_file.get() == NULL) {
-    LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
-              << " does not exist for " << filename.c_str();
+    if (debug_logging) {
+        LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
+		  << " does not exist for " << filename.c_str();
+    }
     return JNI_TRUE;
   }
 
@@ -270,17 +272,21 @@ static jboolean DexFile_isDexOptNeeded(JNIEnv* env, jclass, jstring javaFilename
       const ImageHeader& image_header = space->AsImageSpace()->GetImageHeader();
       if (oat_file->GetOatHeader().GetImageFileLocationOatChecksum() != image_header.GetOatChecksum()) {
         ScopedObjectAccess soa(env);
-        LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
-                  << " has out-of-date oat checksum compared to "
-                  << image_header.GetImageRoot(ImageHeader::kOatLocation)->AsString()->ToModifiedUtf8();
+	if (debug_logging) {
+		LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
+			<< " has out-of-date oat checksum compared to "
+			<< image_header.GetImageRoot(ImageHeader::kOatLocation)->AsString()->ToModifiedUtf8();
+	}
         return JNI_TRUE;
       }
       if (oat_file->GetOatHeader().GetImageFileLocationOatDataBegin()
           != reinterpret_cast<uint32_t>(image_header.GetOatDataBegin())) {
         ScopedObjectAccess soa(env);
-        LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
-                  << " has out-of-date oat begin compared to "
-                  << image_header.GetImageRoot(ImageHeader::kOatLocation)->AsString()->ToModifiedUtf8();
+        if (debug_logging) {
+		LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
+			<< " has out-of-date oat begin compared to "
+			<< image_header.GetImageRoot(ImageHeader::kOatLocation)->AsString()->ToModifiedUtf8();
+	}
         return JNI_TRUE;
       }
     }
@@ -294,14 +300,18 @@ static jboolean DexFile_isDexOptNeeded(JNIEnv* env, jclass, jstring javaFilename
   }
 
   if (!ClassLinker::VerifyOatFileChecksums(oat_file.get(), filename.c_str(), location_checksum)) {
-    LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
-        << " has out-of-date checksum compared to " << filename.c_str();
+    if (debug_logging) {
+	LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
+		<< " has out-of-date checksum compared to " << filename.c_str();
+    }
     return JNI_TRUE;
   }
 
   if (debug_logging) {
-    LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
-              << " is up-to-date for " << filename.c_str();
+	  if (debug_logging) {
+		LOG(INFO) << "DexFile_isDexOptNeeded cache file " << cache_location
+		<< " is up-to-date for " << filename.c_str();
+	  }
   }
   return JNI_FALSE;
 }

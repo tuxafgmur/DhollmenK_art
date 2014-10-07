@@ -766,8 +766,6 @@ class CardScanTask : public MarkStackTask<false> {
     accounting::CardTable* card_table = mark_sweep_->GetHeap()->GetCardTable();
     size_t cards_scanned = card_table->Scan(bitmap_, begin_, end_, visitor, minimum_age_);
     mark_sweep_->cards_scanned_.fetch_add(cards_scanned);
-    VLOG(heap) << "Parallel scanning cards " << reinterpret_cast<void*>(begin_) << " - "
-        << reinterpret_cast<void*>(end_) << " = " << cards_scanned;
     // Finish by emptying our local mark stack.
     MarkStackTask::Run(self);
   }
@@ -836,8 +834,6 @@ void MarkSweep::ScanGrayObjects(bool paused, byte minimum_age) {
         // Make sure we don't miss scanning any cards.
         size_t scanned_cards = card_table->Scan(space->GetMarkBitmap(), space->Begin(),
                                                 space->End(), VoidFunctor(), minimum_age);
-        VLOG(heap) << "Scanning space cards " << reinterpret_cast<void*>(space->Begin()) << " - "
-            << reinterpret_cast<void*>(space->End()) << " = " << scanned_cards;
         ref_card_count += scanned_cards;
       }
     }
@@ -1204,8 +1200,6 @@ void MarkSweep::SweepArray(accounting::ObjectStack* allocations, bool swap_bitma
   timings_.EndSplit();
 
   timings_.StartSplit("RecordFree");
-  VLOG(heap) << "Freed " << freed_objects << "/" << count
-             << " objects with size " << PrettySize(freed_bytes);
   heap_->RecordFree(freed_objects + freed_large_objects, freed_bytes + freed_large_object_bytes);
   freed_objects_.fetch_add(freed_objects);
   freed_large_objects_.fetch_add(freed_large_objects);
@@ -1643,32 +1637,7 @@ void MarkSweep::FinishPhase() {
   // Ensure that the mark stack is empty.
   CHECK(mark_stack_->IsEmpty());
 
-  if (kCountScannedTypes) {
-    VLOG(gc) << "MarkSweep scanned classes=" << class_count_ << " arrays=" << array_count_
-             << " other=" << other_count_;
-  }
-
-  if (kCountTasks) {
-    VLOG(gc) << "Total number of work chunks allocated: " << work_chunks_created_;
-  }
-
-  if (kMeasureOverhead) {
-    VLOG(gc) << "Overhead time " << PrettyDuration(overhead_time_);
-  }
-
-  if (kProfileLargeObjects) {
-    VLOG(gc) << "Large objects tested " << large_object_test_ << " marked " << large_object_mark_;
-  }
-
-  if (kCountClassesMarked) {
-    VLOG(gc) << "Classes marked " << classes_marked_;
-  }
-
-  if (kCountJavaLangRefs) {
-    VLOG(gc) << "References scanned " << reference_count_;
-  }
-
-  // Update the cumulative loggers.
+    // Update the cumulative loggers.
   cumulative_timings_.Start();
   cumulative_timings_.AddLogger(timings_);
   cumulative_timings_.End();

@@ -167,8 +167,6 @@ class Dex2Oat {
 
   ~Dex2Oat() {
     delete runtime_;
-    VLOG(compiler) << "dex2oat took " << PrettyDuration(NanoTime() - start_ns_)
-              << " (threads: " << thread_count_ << ")";
   }
 
 
@@ -618,9 +616,6 @@ static int dex2oat(int argc, char** argv) {
   for (int i = 0; i < argc; i++) {
     const StringPiece option(argv[i]);
     bool log_options = false;
-    if (log_options) {
-      LOG(INFO) << "dex2oat: option[" << i << "]=" << argv[i];
-    }
     if (option.starts_with("--dex-file=")) {
       dex_filenames.push_back(option.substr(strlen("--dex-file=")).data());
     } else if (option.starts_with("--dex-location=")) {
@@ -832,7 +827,6 @@ static int dex2oat(int argc, char** argv) {
   }
 
   timings.StartSplit("dex2oat Setup");
-  LOG(INFO) << "dex2oat: " << oat_location;
 
   if (image) {
     bool has_compiler_filter = false;
@@ -947,7 +941,6 @@ static int dex2oat(int argc, char** argv) {
     }
     if (num_methods <= Runtime::Current()->GetNumDexMethodsThreshold()) {
       Runtime::Current()->SetCompilerFilter(Runtime::kSpeed);
-      VLOG(compiler) << "Below method threshold, compiling anyways";
     }
   }
 
@@ -967,8 +960,6 @@ static int dex2oat(int argc, char** argv) {
     LOG(ERROR) << "Failed to create oat file: " << oat_location;
     return EXIT_FAILURE;
   }
-
-  VLOG(compiler) << "Oat file written successfully (unstripped): " << oat_location;
 
   // Notes on the interleaving of creating the image and oat file to
   // ensure the references between the two are correct.
@@ -1030,7 +1021,6 @@ static int dex2oat(int argc, char** argv) {
     if (!image_creation_success) {
       return EXIT_FAILURE;
     }
-    VLOG(compiler) << "Image written successfully: " << image_filename;
   }
 
   if (is_host) {
@@ -1058,7 +1048,6 @@ static int dex2oat(int argc, char** argv) {
       CHECK(write_ok);
     }
     oat_file.reset(out.release());
-    VLOG(compiler) << "Oat file copied successfully (stripped): " << oat_stripped;
   }
 
 #if ART_USE_PORTABLE_COMPILER  // We currently only generate symbols on Portable
@@ -1068,9 +1057,6 @@ static int dex2oat(int argc, char** argv) {
   CHECK_EQ(0, seek_actual);
   ElfStripper::Strip(oat_file.get());
 
-
-  // We wrote the oat file successfully, and want to keep it.
-  VLOG(compiler) << "Oat file written successfully (stripped): " << oat_location;
 #endif  // ART_USE_PORTABLE_COMPILER
 
   timings.EndSplit();

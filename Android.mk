@@ -1,5 +1,3 @@
-#
-#
 # Copyright (C) 2011 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 LOCAL_PATH := $(call my-dir)
 
@@ -22,7 +19,6 @@ art_build_path := $(art_path)/build
 
 ########################################################################
 # clean-oat targets
-#
 
 # following the example of build's dont_bother for clean targets
 ifneq (,$(filter clean-oat,$(MAKECMDGOALS)))
